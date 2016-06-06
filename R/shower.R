@@ -30,7 +30,7 @@
 #' rmarkdown::render("presentation.Rmd")
 #' }
 
-shower <- function(
+shower_presentation <- function(
   theme = c("ribbon", "material"),
   ratio = c("4x3", "16x10"),
   katex = FALSE,
@@ -49,6 +49,8 @@ shower <- function(
   lib_dir = NULL,
   pandoc_args = NULL,
   ...) {
+
+  theme <- theme[1]
 
   if (! theme %in% c("ribbon", "material", "mango")) {
     stop("Unknown theme")
@@ -74,16 +76,16 @@ shower <- function(
     args <- c(args, "--incremental")
 
   # slide level
-  args <- c(args, "--slide-level", "1")
+  args <- c(args, "--slide-level", "2")
 
   # theme
-  args <- c(args, "--variable", paste0("theme=", theme))
+  args <- c(args, paste0("--variable=theme:", theme))
 
   # aspect ratio
-  ratio <- c(args, "--variable", paste0("ratio=", ratio))
+  args <- c(args, paste0("--variable=ratio:", ratio))
 
   # KaTeX?
-  args <- c(args, if (katex) c("--variable", "katex=yes"))
+  args <- c(args, if (katex) paste0("--variable=katex:yes"))
 
   # content includes
   args <- c(args, includes_to_pandoc_args(includes))
@@ -117,8 +119,7 @@ shower <- function(
     }
     args <- c(
       args,
-      "--variable",
-      paste("shower-url=", pandoc_path_arg(shower_path), sep  ="")
+      paste0("--variable=shower-url:", pandoc_path_arg(shower_path))
     )
 
     ## highlight
@@ -136,13 +137,32 @@ shower <- function(
 
     ## Change <li class="fragment"> elements, add a "next" class.
     ## Shower needs this for incremental lists
-
     lines <- sub(
       "<li class=\"fragment\"",
       "<li class=\"fragment next\"",
       lines,
       fixed = TRUE
     )
+
+    ## Everything should be H2 for shower
+    lines <- sub(
+      "^<h1>(.*)</h1>$",
+      "<h2>\\1</h2>",
+      lines,
+      perl = TRUE
+    )
+
+    ## Title slides are H2, too, but have a special class
+    lines <- sub(
+      "(class=\"titleslide slide level1\">)<h1>(.*)</h1>",
+      "\\1<h2 class=\"shout\">\\2</h2>",
+      lines,
+      perl = TRUE
+    )
+
+    ## No embedded sections, please
+    lines <- sub("^<section><section", "<section", lines)
+    lines <- sub("^</section></section>", "</section>", lines)
 
     ## Write it out
     writeLines(lines, output_file)
